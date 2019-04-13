@@ -1,8 +1,3 @@
-// #include<bits/stdc++.h>
-// #include <iostream>
-// #include <cstring>
-// #include <fstream>
-
 using namespace std;
 
 class Instruction {
@@ -71,11 +66,63 @@ string searchFormatOPTAB(Instruction optab[], string search_opname) {
     }
     return "NOT FOUND";
 }
-//
-// int main() {
-//     Instruction optab[60];
-//     OPTAB(optab);
-//     cout<<searchOPTAB(optab, "LDA")<<endl;
-//
-//     return 0;
-// }
+class Symbol {
+    string label, location;
+public:
+    void set(string label, string location) {
+        this->label = label;
+        this->location = location;
+    }
+    string getLabel() {
+        return label;
+    }
+    string getLocation() {
+        return location;
+    }
+};
+
+string searchLocationSymtab(Symbol symtab[], string label, int SYMTABSize) {
+    int i = 0;
+    while(i < SYMTABSize) {
+        if(label == symtab[i].getLabel()) {
+            return symtab[i].getLocation();
+        }
+        i++;
+    }
+    return "NOT FOUND";
+}
+
+class Register {
+    string name, opcode;
+public:
+    void set(string name, string opcode) {
+        this->name = name;
+        this->opcode = opcode;
+    }
+    string getopcode() {
+        return opcode;
+    }
+    string getname() {
+        return name;
+    }
+};
+
+void REGISTER(Register registers[]) {
+    registers[0].set("A", "0");
+    registers[1].set("X", "1");
+    registers[2].set("L", "2");
+    registers[3].set("B", "3");
+    registers[4].set("S", "4");
+    registers[5].set("T", "5");
+    registers[6].set("F", "6");
+    registers[7].set("PC", "8");
+    registers[8].set("SW", "9");
+}
+
+string searchRegisters(Register registers[], string name) {
+    int i = 0;
+    while(name != registers[i].getname()) {
+        i++;
+    }
+    return registers[i].getopcode();
+}
