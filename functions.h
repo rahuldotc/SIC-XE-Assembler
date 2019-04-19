@@ -1,9 +1,9 @@
-void getSize(int *LOCTRSize, int *SYMTABSize) {
+void getSize(string File_Path, int *SYMTABSize, int *litTabSize, int *BlockSize) {
     ifstream fin;
-    fin.open("/home/rahul/Documents/P.R.O.J.E.C.T.S/SampleProgram.txt");
+    fin.open(File_Path);
 
     int i;
-    string line, word[3];
+    string line, word[3], blockCheck = "", litCheck = "";
     while(fin) {
         getline(fin, line);
         stringstream iss(line);
@@ -12,14 +12,52 @@ void getSize(int *LOCTRSize, int *SYMTABSize) {
             word[i];
             i++;
         }
-        if(line != "") {
-            *LOCTRSize = *LOCTRSize + 1;
+
+        string label, instr, operand = "NAN";
+        if(i == 3) {
+            label = word[0];
+            instr = word[1];
+            operand = word[2];
+        } else if(i == 2) {
+            instr = word[0];
+            operand = word[1];
+        } else if(i == 1) {
+            instr = word[0];
         }
+
         if(i == 3) {
             *SYMTABSize = *SYMTABSize + 1;
         }
+        if(operand.at(0) == '=') {
+            if(litCheck.find(operand) != std::string::npos) {
+                continue;
+            } else {
+                litCheck.append(operand);
+                *litTabSize = *litTabSize + 1;
+            }
+        }
+        if(instr == "USE" && operand != "NAN") {
+            if (blockCheck.find(operand) != std::string::npos) {
+                continue;
+            } else {
+                blockCheck.append(operand);
+                *BlockSize = *BlockSize + 1;
+            }
+        }
     }
     fin.close();
+}
+
+void WriteObjectProgram(string opcode[], string programName, string programAddress, string programLength) {
+    ofstream fout;
+    fout.open("ObjectProgram.txt");
+
+    fout<<"H-"<<programName<<"-"<<programAddress<<"-"<<programLength<<endl;
+
+    int i = 0;
+    while(opcode[i] != "") {
+        fout<<"T";
+    }
 }
 
 string DecimalToHex(int loc) {
@@ -39,14 +77,30 @@ int HexToDecimal(string hexString) {
     ss << hex << hexString;
     ss >> dec;
     int decimalString = static_cast<int>(dec);
-    // cout << (decimalString);
     return decimalString;
+}
+
+string spaces(string s1) {
+    while(s1.length() < 6) {
+        s1.append(" ");
+    }
+    return s1;
+}
+
+string Zeroes(string s1) {
+    int i = 0;
+    string s2;
+    while(i < 2-s1.length()) {
+        s2.append("0");
+        i++;
+    }
+    return s2.append(s1);
 }
 
 string addZeroes(string s1) {
     int i = 0;
     string s2;
-    while(i < 4-s1.length()) {
+    while(i < 6-s1.length()) {
         s2.append("0");
         i++;
     }
@@ -100,7 +154,11 @@ string BinaryToHex(string Binary) {
 string addZeroesDisplacement(string disp, string flag) {
     int i = 0, limit;
     string s1;
-    (flag == "0") ? (limit = 3) : (limit = 5);
+    if(flag == "0") {
+        limit = 3;
+    } else {
+        limit = 5;
+    }
     while(s1.length() + disp.length() < limit) {
         s1.append("0");
     }

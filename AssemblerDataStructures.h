@@ -1,5 +1,7 @@
 using namespace std;
 
+    //OPTAB
+
 class Instruction {
     string opname, format, opcode;
 
@@ -66,6 +68,9 @@ string searchFormatOPTAB(Instruction optab[], string search_opname) {
     }
     return "NOT FOUND";
 }
+
+    //SYMTAB
+
 class Symbol {
     string label, location;
 public:
@@ -91,6 +96,8 @@ string searchLocationSymtab(Symbol symtab[], string label, int SYMTABSize) {
     }
     return "NOT FOUND";
 }
+
+    // REGISTER
 
 class Register {
     string name, opcode;
@@ -125,4 +132,123 @@ string searchRegisters(Register registers[], string name) {
         i++;
     }
     return registers[i].getopcode();
+}
+
+    //BLOCK
+
+class Block {
+    string name, length, address, *loctr;
+    int number;
+
+public:
+
+    void setName(string name) { this->name = name; }
+    void setNumber(int number) { this->number = number; }
+    void setLength(string length) { this->length = length; }
+    void setAddress(string address) { this->address = address; }
+    void setLoctrSize(int size) {
+        loctr = new string[size];
+    }
+
+    string getName() { return name; }
+    int getNumber() { return number; }
+    string getLength() { return length; }
+    string getAddress() { return address; }
+    string *getLoctr() { return loctr; }
+
+};
+
+string* getBlockLoctrSize(string File_Path, int blockLoctrSize[], int BlockSize) {
+    ifstream fin;
+    fin.open(File_Path);
+
+    int i, index = 0;
+
+    for(i = 0; i < BlockSize; i++) {
+        blockLoctrSize[i] = 0;
+    }
+
+    string line, word[3];
+    string* blockName = new string[BlockSize];
+
+    blockName[0] = "DEFAULT";
+
+    while(fin) {
+        getline(fin, line);
+        stringstream iss(line);
+        i = 0;
+        while (iss >> word[i]) {
+            word[i];
+            i++;
+        }
+
+        string label, instr, operand = "NAN";
+        if(i == 3) {
+            label = word[0];
+            instr = word[1];
+            operand = word[2];
+        } else if(i == 2) {
+            instr = word[0];
+            operand = word[1];
+        } else if(i == 1) {
+            instr = word[0];
+            if(instr == "USE") {
+                operand = "DEFAULT";
+            }
+        }
+        int j = 0, flag = 1;
+        if(instr == "USE") {
+            while(blockName[j] != "") {
+                if(blockName[j] == operand) {
+                    index = j;
+                    flag = 0;
+                }
+                j++;
+            }
+            if(flag == 1) {
+                blockName[j] = operand;
+                index = j;
+            }
+            blockLoctrSize[index]--;
+        }
+
+        if(instr == "BASE" || instr == "LTORG") {
+            blockLoctrSize[index]--;
+        }
+
+        blockLoctrSize[index]++;
+    }
+    blockLoctrSize[index]--;
+    fin.close();
+
+    for(int k = 1; k < BlockSize; k++) {
+        blockLoctrSize[k]--;
+    }
+
+    return blockName;
+}
+
+int* BLOCK(string File_Path, Block block[], int BlockSize) {
+    int* blockLoctrSize = new int[BlockSize];
+
+    string* blockName = getBlockLoctrSize(File_Path, blockLoctrSize, BlockSize);
+
+    int i = 0;
+    for(i = 0; i < BlockSize; i++) {
+        block[i].setLoctrSize(blockLoctrSize[i]);
+        block[i].setName(blockName[i]);
+        block[i].setNumber(i);
+    }
+    return blockLoctrSize;
+}
+
+int searchNumberBlock(Block block[], int BlockSize, string name) {
+    int i = 0;
+    while(i < BlockSize) {
+        if(block[i].getName() == name) {
+            return block[i].getNumber();
+        }
+        i++;
+    }
+    return -1;
 }

@@ -7,11 +7,22 @@
 
 using namespace std;
 
-void Pass1(Instruction optab[], Symbol symtab[], int loc[], string locationCounter[]) {
+void Pass1(string File_Path, Instruction optab[], Symbol symtab[], Block block[], int BlockSize, string *programName, string *programLength) {
+
     ifstream fin;
+    ofstream fout;
+
+    fout.open("SampleProgramINTERMEDIATE.txt");
+
     string line, word[3], size;
-    fin.open("/home/rahul/Documents/P.R.O.J.E.C.T.S/SampleProgram.txt");
-    int i, j = 0, k = 0;
+    fin.open(File_Path);
+
+    int i, j = 0, k = 0, z = 0, index = 0, b = 0, blockIndex = 0, previous, current, w[BlockSize], temp[BlockSize];
+    for(i = 0; i < BlockSize; i++) {
+        w[i] = 0;
+        temp[i] = 0;
+    }
+
     while(fin) {
         getline(fin, line);
         stringstream iss(line);
@@ -21,7 +32,7 @@ void Pass1(Instruction optab[], Symbol symtab[], int loc[], string locationCount
             i++;
         }
 
-        string label, instr, operand;
+        string label, instr, operand = "NAN";
         if(i == 3) {
             label = word[0];
             instr = word[1];
@@ -31,32 +42,49 @@ void Pass1(Instruction optab[], Symbol symtab[], int loc[], string locationCount
             operand = word[1];
         } else if(i == 1) {
             instr = word[0];
+            if(instr == "USE") {
+                operand = "DEFAULT";
+            }
         } else {
             continue;
         }
+
+        //WRITING TO INTERMEDIATE FILE
+        if(instr != "LTORG") {
+            fout<<line<<endl;
+        }
+
         if(instr == "START") {
-            // cout<<"hello";
-            loc[k] = 0;
-            // cout<<loc[k]<<endl;
-            locationCounter[k] = DecimalToHex(loc[k]);
-            locationCounter[k] = addZeroes(DecimalToHex(loc[k]));
-            loc[k+1] = 0;
-            k++;
+            block[0].setAddress(addZeroes(operand));
+            *programName = label;
+            blockIndex = 0;
+            previous = temp[blockIndex];
+            current = 0;
         } else if(instr == "BASE") {
             continue;
+        }
+
+         else if(instr == "USE") {
+            temp[blockIndex] = current;
+            blockIndex = searchNumberBlock(block, BlockSize, operand);
+            previous = temp[blockIndex];
+            current = 0;
+            continue;
         } else if(instr == "WORD") {
-            loc[k] = loc[k-1] + 3;
+            current = previous + 3;
         } else if(instr == "RESW") {
-            loc[k] = loc[k-1] + 3*(HexToDecimal((operand)));
+            current = previous + 3*(HexToDecimal((operand)));
         } else if(instr == "RESB") {
-            loc[k] = loc[k-1] + (stoi(operand));
+            current = previous + (stoi(operand));
         } else if(instr == "BYTE") {
             if(operand == "X'05'" || operand == "X'F1'") {
-                loc[k] = loc[k-1] + 1;
+                current = previous + 1;
             } else {
-                loc[k] = loc[k-1] + (operand.length() - 3);
+                current = previous + (operand.length() - 3);
             }
-        } else if(instr == "END") {
+         } else if(instr == "END") {
+            block[blockIndex].getLoctr()[w[blockIndex]] = addZeroes(DecimalToHex(previous));
+            w[blockIndex]++;
             break;
         } else {
 
@@ -70,35 +98,78 @@ void Pass1(Instruction optab[], Symbol symtab[], int loc[], string locationCount
 
             size = searchFormatOPTAB(optab, instr2);
             if(size == "3/4" && instr.at(0) == '+') {
-                loc[k] = loc[k-1] + 4;
+                current = previous + 4;
             } else if(size == "3/4") {
-                loc[k] = loc[k-1] + 3;
+                current = previous + 3;
             } else if(size == "2") {
-                loc[k] = loc[k-1] + 2;
+                current = previous + 2;
             } else {
-                loc[k] = loc[k-1] + 1;
+                current = previous + 1;
             }
         }
 
-        locationCounter[k] = DecimalToHex(loc[k]);
-        locationCounter[k] = addZeroes(DecimalToHex(loc[k]));
+        block[blockIndex].getLoctr()[w[blockIndex]] = addZeroes(DecimalToHex(previous));
+        w[blockIndex]++;
+
         if(label != "") {
-            symtab[j].set(label, locationCounter[k-1]);
-            j++;
+            if(blockIndex == 0) {
+                symtab[j].set(label, block[blockIndex].getLoctr()[w[blockIndex]-1]);
+                j++;
+            } else {
+                symtab[j].set(label, to_string(blockIndex) + "+" + block[blockIndex].getLoctr()[w[blockIndex]-1]);
+                j++;
+            }
+
         }
-        k++;
+
+        previous = current;
     }
+
+    //ACCOUNTING FOR THE LAST BLOCK'S ADDRESSE BIAS
+    temp[blockIndex] = current;
+
     fin.close();
+    fout.close();
+
+    //ASSIGNING BLOCK ADDRESSES
+    for(int a = 1; a < BlockSize; a++) {
+        block[a].setAddress(addZeroes(DecimalToHex(temp[a-1] + HexToDecimal(block[a-1].getAddress()))));
+    }
+
+    *programLength = addZeroes(DecimalToHex(temp[BlockSize-1] + HexToDecimal(block[BlockSize-2].getAddress())));
+
+
+    //UPDATE SYMTAB
+    for(int t = 0; t < j; t++) {
+        size_t found = symtab[t].getLocation().find("+");
+        if(found != string::npos) {
+            string s1 = symtab[t].getLocation().substr(0, found);
+            string s2 = symtab[t].getLocation().substr(found+1, symtab[t].getLocation().length());
+
+            s2 = addZeroes(DecimalToHex(HexToDecimal(s2) + HexToDecimal(block[stoi(s1)].getAddress())));
+
+            symtab[t].set(symtab[t].getLabel(), s2);
+        }
+    }
+
 
 }
 
-void Pass2(Instruction optab[], Symbol symtab[], string locationCounter[], Register registers[], string opcode[], int SYMTABSize) {
+typedef list< pair<string, string> > objcType;
+
+objcType Pass2(Instruction optab[], Symbol symtab[], Block block[], int BlockSize, Register registers[], int SYMTABSize) {
+
+    list <pair<string, string>> objc;
 
     string baseCounter, objectCode, N, I, X, B, P, E;
     ifstream fin;
-    string line, word[3], size, s1;
-    fin.open("/home/rahul/Documents/P.R.O.J.E.C.T.S/SampleProgram.txt");
-    int i, j = 0, k = 0;
+    string line, word[3], size, s1, Location;
+    fin.open("SampleProgramINTERMEDIATE.txt");
+    int i, j = 0, blockIndex = 0, w[BlockSize];
+    for(i = 0; i < BlockSize; i++) {
+        w[i] = 0;
+    }
+
     while(fin) {
         getline(fin, line);
         if(line == "") {
@@ -121,25 +192,37 @@ void Pass2(Instruction optab[], Symbol symtab[], string locationCounter[], Regis
             operand = word[1];
         } else if(i == 1) {
             instr = word[0];
+            operand = "DEFAULT";
         } else {
             continue;
         }
-        cout<<"k = "<<k<<" j = "<<j<<label<<" "<<instr<<" "<<operand<<endl;
+
         if(instr == "START" || instr == "RESB" || instr == "RESW" || instr == "END") {
-            k++;
+            w[blockIndex]++;
+           continue;
+       } else if(instr == "USE") {
+           blockIndex = searchNumberBlock(block, BlockSize, operand);
+           Location = addZeroes(DecimalToHex(HexToDecimal(block[blockIndex].getLoctr()[w[blockIndex]]) + HexToDecimal(block[blockIndex].getAddress())));
+           objc.push_back(make_pair("!", Location));
+           j++;
            continue;
        } else if(instr == "BASE") {
            baseCounter = searchLocationSymtab(symtab, operand, SYMTABSize);
            continue;
-       } else if(instr == "BYTE") {
+       } else if(instr == "BYTE" || instr == "*") {
             s1 = operand.substr(2, (operand.length() - 3));
             if(operand.at(0) == 'C') {
-                opcode[j] = asciiToHex(s1);
+                Location = addZeroes(DecimalToHex(HexToDecimal(block[blockIndex].getLoctr()[w[blockIndex]]) + HexToDecimal(block[blockIndex].getAddress())));
+                objc.push_back(make_pair(asciiToHex(s1), Location));
+
             } else if(operand.at(0) == 'X') {
-                opcode[j] = s1;
+                Location = addZeroes(DecimalToHex(HexToDecimal(block[blockIndex].getLoctr()[w[blockIndex]]) + HexToDecimal(block[blockIndex].getAddress())));
+                objc.push_back(make_pair(s1, Location));
             }
         } else if(instr == "WORD") {
-            opcode[j] = addZeroes(DecimalToHex(stoi(operand)));
+            Location = addZeroes(DecimalToHex(HexToDecimal(block[blockIndex].getLoctr()[w[blockIndex]]) + HexToDecimal(block[blockIndex].getAddress())));
+            objc.push_back(make_pair(addZeroes(DecimalToHex(stoi(operand))), Location));
+
         } else {
 
             //INSTRUCTION CORRECTION
@@ -154,8 +237,11 @@ void Pass2(Instruction optab[], Symbol symtab[], string locationCounter[], Regis
 
                 if(instr == "RSUB") {
                     objectCode = "4f0000";
-                    opcode[j] = objectCode;
-                    k++; j++;
+                    Location = addZeroes(DecimalToHex(HexToDecimal(block[blockIndex].getLoctr()[w[blockIndex]]) + HexToDecimal(block[blockIndex].getAddress())));
+                    objc.push_back(make_pair(objectCode, Location));
+
+
+                    w[blockIndex]++; j++;
                     continue;
                 }
 
@@ -165,7 +251,6 @@ void Pass2(Instruction optab[], Symbol symtab[], string locationCounter[], Regis
                 if(operand.at(0) == '#' || operand.at(0) == '@') {
                     operand2 = operand.substr(1, operand.length());
                 }
-                cout<<operand2;
 
                 if(operand2.at(operand2.length()-1) == 'X' && operand2.at(operand2.length()-2) == ',') {
                     X = "1";
@@ -177,7 +262,7 @@ void Pass2(Instruction optab[], Symbol symtab[], string locationCounter[], Regis
                 // B, P Condition Flags
                 string tempDisp0 = searchLocationSymtab(symtab, operand2, SYMTABSize);
                 if(tempDisp0 != "NOT FOUND") {
-                    int tempDisp = HexToDecimal(searchLocationSymtab(symtab, operand2, SYMTABSize)) - HexToDecimal(locationCounter[k+1]);
+                    int tempDisp = HexToDecimal(searchLocationSymtab(symtab, operand2, SYMTABSize)) - HexToDecimal(block[blockIndex].getLoctr()[w[blockIndex]+1]);
                     if(tempDisp > 4095 || tempDisp < -4095) {
                         B = "1";
                         P = "0";
@@ -208,6 +293,11 @@ void Pass2(Instruction optab[], Symbol symtab[], string locationCounter[], Regis
                     E = "0";
                 }
 
+                if(operand2.at(0) == '=') {
+                    P = "1";
+                    B = "0";
+                }
+
                 objectCode = searchOPTAB(optab, instr2);
                 objectCode = HexToBinary(objectCode);
                 objectCode = objectCode.substr(24, 29);
@@ -225,7 +315,7 @@ void Pass2(Instruction optab[], Symbol symtab[], string locationCounter[], Regis
                     string disp;
                     if(N == "1") {
                         if(B == "0" && P == "1") {
-                            disp = DecimalToHex(HexToDecimal(searchLocationSymtab(symtab, operand2, SYMTABSize)) - HexToDecimal(locationCounter[k+1]));
+                            disp = DecimalToHex(HexToDecimal(searchLocationSymtab(symtab, operand2, SYMTABSize)) - HexToDecimal(block[blockIndex].getLoctr()[w[blockIndex]+1]));
                             objectCode = BinaryToHex(objectCode);
                             disp = addZeroesDisplacement(disp, E);
                             if(disp.length() > 3) {
@@ -244,7 +334,7 @@ void Pass2(Instruction optab[], Symbol symtab[], string locationCounter[], Regis
                             disp = searchLocationSymtab(symtab, disp, SYMTABSize);
                         }
                         if(P == "1") {
-                            disp = DecimalToHex(HexToDecimal(searchLocationSymtab(symtab, operand2, SYMTABSize)) - HexToDecimal(locationCounter[k+1]));
+                            disp = DecimalToHex(HexToDecimal(searchLocationSymtab(symtab, operand2, SYMTABSize)) - HexToDecimal(block[blockIndex].getLoctr()[w[blockIndex]+1]));
                             objectCode = BinaryToHex(objectCode);
                             disp = addZeroesDisplacement(disp, E);
                             if(disp.length() > 3) {
@@ -286,20 +376,93 @@ void Pass2(Instruction optab[], Symbol symtab[], string locationCounter[], Regis
             } else {
                 objectCode = searchOPTAB(optab, instr);
             }
-            opcode[j] = objectCode;
+
+            Location = addZeroes(DecimalToHex(HexToDecimal(block[blockIndex].getLoctr()[w[blockIndex]]) + HexToDecimal(block[blockIndex].getAddress())));
+            objc.push_back(make_pair(objectCode, Location));
+
         }
-        k++; j++;
+        w[blockIndex]++; j++;
     }
         fin.close();
+
+    return objc;
+
+}
+
+void writeObjectProgram(objcType objc, string programName, string programLength, string programAddress) {
+    ofstream fout;
+    fout.open("ObjectProgram.txt");
+
+    fout<<"H"<<"-"<<spaces(programName)<<"-"<<programAddress<<"-"<<programLength<<endl;
+
+    objcType::iterator iter = objc.begin(), previous = objc.begin();
+
+    int codeLength = 0, flag = 0;
+    string code, loc, codeLine;
+    for(; iter != objc.end(); previous=iter, ++iter) {
+       code = (*iter).first;
+       if(code != "!") {
+           if(code.length() == 9) {
+               code = code.substr(0, 3) + code.substr(4, 9);
+           }
+
+           if(codeLength == 0) {
+               if(iter != objc.begin()) {
+                   codeLength += ((*previous).first).length()/2;
+               }
+               loc = (*previous).second;
+               fout<<"T"<<"-";
+           }
+           codeLength += code.length()/2;
+
+           if(codeLength <= 30) {
+               if(iter == objc.begin()) {
+                   codeLine.append(code);
+               } else {
+                   codeLine.append("-" + code);
+               }
+           } else {
+
+               fout<<loc<<"-"<<Zeroes(DecimalToHex(codeLength-(code.length()/2)))<<"-"<<codeLine<<endl;
+               codeLength = 0;
+               codeLine = code;
+           }
+       } else {
+           do {
+               iter++;
+               code = (*iter).first;
+           } while(code == "!");
+
+           fout<<loc<<"-"<<Zeroes(DecimalToHex(codeLength))<<"-"<<codeLine<<endl;
+           codeLength = 0;
+           codeLine = code;
+           loc = (*iter).second;
+
+           objcType::iterator iter2 = iter;
+           iter2++;
+           string code2 = (*iter2).first;
+           if(code2 == "!" || code2 == "") {
+               fout<<"T"<<"-";
+               codeLength = code.length()/2;
+          }
+       }
+    }
+
+    fout<<loc<<"-"<<Zeroes(DecimalToHex(codeLength))<<"-"<<codeLine<<endl;
+
+    fout<<"E"<<"-"<<programAddress;
 }
 
 int main() {
-    int LOCTRSize = 0, SYMTABSize = 0;
-    getSize(&LOCTRSize, &SYMTABSize);
+    string File_Path = "SampleProgram.txt";
 
-    int loc[LOCTRSize];
-    string locationCounter[LOCTRSize], opcode[100];
+    int SYMTABSize = 0, litTabSize = 0, BlockSize = 1;
+    getSize(File_Path, &SYMTABSize, &litTabSize, &BlockSize);
+
     Symbol symtab[SYMTABSize];
+
+    Block block[BlockSize];
+    int* blockLoctrSize = BLOCK(File_Path, block, BlockSize);
 
     Instruction optab[59];
     OPTAB(optab);
@@ -307,14 +470,16 @@ int main() {
     Register registers[9];
     REGISTER(registers);
 
-    Pass1(optab, symtab, loc, locationCounter);
+    string programName, programLength;
+    Pass1(File_Path, optab, symtab, block, BlockSize, &programName, &programLength);
 
-    Pass2(optab, symtab, locationCounter, registers, opcode, SYMTABSize);
+    string programAddress = block[0].getAddress();
 
-    int i = 0;
-    while(opcode[i] != "") {
-        cout<<opcode[i]<<endl;
-        i++;
-    }
+    objcType objc;
+
+    objc = Pass2(optab, symtab, block, BlockSize, registers, SYMTABSize);
+
+    writeObjectProgram(objc, programName, programLength, programAddress);
+
     return 0;
 }
