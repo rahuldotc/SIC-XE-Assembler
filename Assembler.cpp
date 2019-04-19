@@ -203,6 +203,7 @@ objcType Pass2(Instruction optab[], Symbol symtab[], Block block[], int BlockSiz
        } else if(instr == "USE") {
            blockIndex = searchNumberBlock(block, BlockSize, operand);
            Location = addZeroes(DecimalToHex(HexToDecimal(block[blockIndex].getLoctr()[w[blockIndex]]) + HexToDecimal(block[blockIndex].getAddress())));
+           transform(Location.begin(), Location.end(), Location.begin(), ::toupper);
            objc.push_back(make_pair("!", Location));
            j++;
            continue;
@@ -213,15 +214,24 @@ objcType Pass2(Instruction optab[], Symbol symtab[], Block block[], int BlockSiz
             s1 = operand.substr(2, (operand.length() - 3));
             if(operand.at(0) == 'C') {
                 Location = addZeroes(DecimalToHex(HexToDecimal(block[blockIndex].getLoctr()[w[blockIndex]]) + HexToDecimal(block[blockIndex].getAddress())));
+                transform(Location.begin(), Location.end(), Location.begin(), ::toupper);
+                objectCode = asciiToHex(s1);
+                transform(objectCode.begin(), objectCode.end(), objectCode.begin(), ::toupper);
                 objc.push_back(make_pair(asciiToHex(s1), Location));
 
             } else if(operand.at(0) == 'X') {
                 Location = addZeroes(DecimalToHex(HexToDecimal(block[blockIndex].getLoctr()[w[blockIndex]]) + HexToDecimal(block[blockIndex].getAddress())));
-                objc.push_back(make_pair(s1, Location));
+                transform(Location.begin(), Location.end(), Location.begin(), ::toupper);
+                objectCode = s1;
+                transform(objectCode.begin(), objectCode.end(), objectCode.begin(), ::toupper);
+                objc.push_back(make_pair(objectCode, Location));
             }
         } else if(instr == "WORD") {
             Location = addZeroes(DecimalToHex(HexToDecimal(block[blockIndex].getLoctr()[w[blockIndex]]) + HexToDecimal(block[blockIndex].getAddress())));
-            objc.push_back(make_pair(addZeroes(DecimalToHex(stoi(operand))), Location));
+            transform(Location.begin(), Location.end(), Location.begin(), ::toupper);
+            objectCode = addZeroes(DecimalToHex(stoi(operand)));
+            transform(objectCode.begin(), objectCode.end(), objectCode.begin(), ::toupper);
+            objc.push_back(make_pair(objectCode, Location));
 
         } else {
 
@@ -238,8 +248,9 @@ objcType Pass2(Instruction optab[], Symbol symtab[], Block block[], int BlockSiz
                 if(instr == "RSUB") {
                     objectCode = "4f0000";
                     Location = addZeroes(DecimalToHex(HexToDecimal(block[blockIndex].getLoctr()[w[blockIndex]]) + HexToDecimal(block[blockIndex].getAddress())));
+                    transform(Location.begin(), Location.end(), Location.begin(), ::toupper);
+                    transform(objectCode.begin(), objectCode.end(), objectCode.begin(), ::toupper);
                     objc.push_back(make_pair(objectCode, Location));
-
 
                     w[blockIndex]++; j++;
                     continue;
@@ -378,6 +389,8 @@ objcType Pass2(Instruction optab[], Symbol symtab[], Block block[], int BlockSiz
             }
 
             Location = addZeroes(DecimalToHex(HexToDecimal(block[blockIndex].getLoctr()[w[blockIndex]]) + HexToDecimal(block[blockIndex].getAddress())));
+            transform(Location.begin(), Location.end(), Location.begin(), ::toupper);
+            transform(objectCode.begin(), objectCode.end(), objectCode.begin(), ::toupper);
             objc.push_back(make_pair(objectCode, Location));
 
         }
@@ -397,7 +410,7 @@ void writeObjectProgram(objcType objc, string programName, string programLength,
 
     objcType::iterator iter = objc.begin(), previous = objc.begin();
 
-    int codeLength = 0, flag = 0;
+    int codeLength = 0;
     string code, loc, codeLine;
     for(; iter != objc.end(); previous=iter, ++iter) {
        code = (*iter).first;
@@ -422,8 +435,9 @@ void writeObjectProgram(objcType objc, string programName, string programLength,
                    codeLine.append("-" + code);
                }
            } else {
-
-               fout<<loc<<"-"<<Zeroes(DecimalToHex(codeLength-(code.length()/2)))<<"-"<<codeLine<<endl;
+               string codeLengthStr = Zeroes(DecimalToHex(codeLength-(code.length()/2)));
+               transform(codeLengthStr.begin(), codeLengthStr.end(), codeLengthStr.begin(), ::toupper);
+               fout<<loc<<"-"<<codeLengthStr<<"-"<<codeLine<<endl;
                codeLength = 0;
                codeLine = code;
            }
@@ -432,8 +446,9 @@ void writeObjectProgram(objcType objc, string programName, string programLength,
                iter++;
                code = (*iter).first;
            } while(code == "!");
-
-           fout<<loc<<"-"<<Zeroes(DecimalToHex(codeLength))<<"-"<<codeLine<<endl;
+           string codeLengthStr = Zeroes(DecimalToHex(codeLength));
+           transform(codeLengthStr.begin(), codeLengthStr.end(), codeLengthStr.begin(), ::toupper);
+           fout<<loc<<"-"<<codeLengthStr<<"-"<<codeLine<<endl;
            codeLength = 0;
            codeLine = code;
            loc = (*iter).second;
@@ -447,8 +462,9 @@ void writeObjectProgram(objcType objc, string programName, string programLength,
           }
        }
     }
-
-    fout<<loc<<"-"<<Zeroes(DecimalToHex(codeLength))<<"-"<<codeLine<<endl;
+    string codeLengthStr = Zeroes(DecimalToHex(codeLength));
+    transform(codeLengthStr.begin(), codeLengthStr.end(), codeLengthStr.begin(), ::toupper);
+    fout<<loc<<"-"<<codeLengthStr<<"-"<<codeLine<<endl;
 
     fout<<"E"<<"-"<<programAddress;
 }
