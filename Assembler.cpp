@@ -454,7 +454,7 @@ void writeObjectProgram(objcType objc, string programName, string programLength,
 }
 
 int main() {
-    string File_Path = "SampleProgram.txt";
+    string File_Path = "SampleProgram1.txt";
 
     int SYMTABSize = 0, litTabSize = 0, BlockSize = 1;
     getSize(File_Path, &SYMTABSize, &litTabSize, &BlockSize);
